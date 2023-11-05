@@ -154,6 +154,11 @@ type AccessList struct {
 	Children []uuid.UUID //Everyone they have directly shared with
 }
 
+type Invitation struct {
+	F_owner uuid.UUID
+	RandKey []byte
+}
+
 // NOTE: The following methods have toy (insecure!) implementations.
 
 type Err int
@@ -487,6 +492,10 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	var accessList AccessList
 	accessList.Fname = f_owner
 	toSave, E = json.Marshal(accessList)
+
+	// can you change it so that there is a deterministic location for the access list?
+	// like filename + UUID + AL + random number or something like that
+
 	if E != nil {
 		return Err(3)
 	}
@@ -717,12 +726,143 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 	return to_return, nil
 }
 
+// helper functions --
+
+/*
+*
+
+Convert filename to f_editor/f_owner
+@filename is the original user provided name
+@id is the requesting user's UUID
+@return filename in type string
+
+*
+*/
+func ConvertFilename(filename string, id uuid.UUID) (f uuid.UUID) {
+	f_editor, E := uuid.FromBytes(userlib.Hash([]byte(filename + id.String()))[:16])
+	if E != nil {
+		return uuid.Nil
+	}
+	return f_editor
+
+}
+
+/*
+*
+
+Convert username to uuid in type string
+@username in type string
+@return uuid (UUID)
+
+*
+*/
+func ConvertUsername(username string) (u uuid.UUID) {
+	user_n, E := uuid.FromBytes(userlib.Hash([]byte(username))[:16])
+	if E != nil {
+		return uuid.Nil
+	}
+	return user_n
+}
+
+/*
+*
+
+/**
+
+Error checking for CreateInvitation
+@filename of file to be shared
+@recipientUsername string version of recipient name
+@error, else nil
+
+*
+*/
+func ErrorCheckInvites(filename string, recipientUsername string) error {
+	_, UsernameError := userlib.DatastoreGet(ConvertUsername(recipientUsername))
+	_, FileError := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
+
+	if UsernameError {
+		return Err(4)
+	} else if FileError {
+		return Err(8)
+	} else {
+		return nil
+	}
+
+}
+
+/*
+*
+
+Error checking for AcceptInvitation
+@filename of editor's selected new filename
+@recipientUsername string version of recipient name
+@senderUsername string version of sender's name
+@error, else nil
+
+*
+*/
+func ErrorCheckAccept(filename string, recipientUsername string, senderUsername string, invitationPtr uuid.UUID) error {
+	_, UUIDError := userlib.DatastoreGet(invitationPtr)
+	_, FileRepeatError := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
+
+	if UUIDError {
+		return Err(6)
+	} else if !FileRepeatError {
+		return Err(2)
+	} else {
+		return nil
+	}
+
+	/**
+	_, RevokeError := DatastoreGet(userlib.DatastoreGet(recipientUsername) + RL + randomKey)
+	else if RevokeError {
+		return E(6)
+	}
+	**/
+
+	// TODO check for tampering and finish revoke check
+}
+
+// TODO signature helper function
+
+/*
+*
+
+Create Invitation
+@filename the recipient can gain access to
+@recipientUsername the username of the person receiving the share
+@return pointer to an invitation containing a struct of all critical elements
+
+*
+*/
 func (userdata *User) CreateInvitation(filename string, recipientUsername string) (
 	invitationPtr uuid.UUID, err error) {
-	return
+	inviteUUID := uuid.New()
+	if ErrorCheckInvites(filename, recipientUsername) != nil {
+		return uuid.Nil, ErrorCheckInvites(filename, recipientUsername)
+	} else {
+		var invitation Invitation
+		var user User
+		var file FilePointer
+
+		ptr, _ := json.Marshal(invitation)
+		userlib.DatastoreSet(inviteUUID, ptr)
+
+		invitation.F_owner = ConvertFilename(filename, user.UUiD)
+		invitation.RandKey = file.RandKey
+
+		return inviteUUID, nil
+	}
 }
 
 func (userdata *User) AcceptInvitation(senderUsername string, invitationPtr uuid.UUID, filename string) error {
+	var user User
+	if ErrorCheckAccept(filename, user.Username, senderUsername, invitationPtr) != nil {
+		return ErrorCheckAccept(filename, user.Username, senderUsername, invitationPtr)
+	} else {
+		// add to access list
+		// ConvertFilename(filename, user.Username)
+	}
 	return nil
 }
 
