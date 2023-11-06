@@ -150,13 +150,18 @@ type BlockPointer struct { //Gets encrypted with RandKey
 }
 
 type AccessList struct {
-	Fname    uuid.UUID   //Local name for this file
-	Children []uuid.UUID //Everyone they have directly shared with
+	Fname    uuid.UUID //Local name for this file
+	RandKey  []byte
+	Children struct {
+		Value      []uuid.UUID
+		AccessList []uuid.UUID
+	}
 }
 
 type Invitation struct {
-	F_owner uuid.UUID
-	RandKey []byte
+	F_owner                 uuid.UUID
+	RandKey                 []byte
+	ChildAccessListLocation uuid.UUID
 }
 
 // NOTE: The following methods have toy (insecure!) implementations.
@@ -739,7 +744,8 @@ Convert filename to f_editor/f_owner
 *
 */
 func ConvertFilename(filename string, id uuid.UUID) (f uuid.UUID) {
-	f_editor, E := uuid.FromBytes(userlib.Hash([]byte(filename + id.String()))[:16])
+	// f_editor, E := uuid.FromBytes(userlib.Hash([]byte(filename + id.String()))[:16])
+	f_editor, E := uuid.FromBytes(userlib.Hash(append([]byte(filename), []byte(id.String())...))[:16])
 	if E != nil {
 		return uuid.Nil
 	}
@@ -777,12 +783,12 @@ Error checking for CreateInvitation
 *
 */
 func ErrorCheckInvites(filename string, recipientUsername string) error {
-	_, UsernameError := userlib.DatastoreGet(ConvertUsername(recipientUsername))
-	_, FileError := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
+	_, UsernameOK := userlib.DatastoreGet(ConvertUsername(recipientUsername))
+	_, FileOK := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
 
-	if UsernameError {
+	if !UsernameOK {
 		return Err(4)
-	} else if FileError {
+	} else if !FileOK {
 		return Err(8)
 	} else {
 		return nil
@@ -802,12 +808,12 @@ Error checking for AcceptInvitation
 *
 */
 func ErrorCheckAccept(filename string, recipientUsername string, senderUsername string, invitationPtr uuid.UUID) error {
-	_, UUIDError := userlib.DatastoreGet(invitationPtr)
-	_, FileRepeatError := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
+	_, UUIDOK := userlib.DatastoreGet(invitationPtr)
+	_, FileRepeatOK := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
 
-	if UUIDError {
+	if !UUIDOK {
 		return Err(6)
-	} else if !FileRepeatError {
+	} else if !FileRepeatOK {
 		return Err(2)
 	} else {
 		return nil
@@ -838,18 +844,29 @@ Create Invitation
 func (userdata *User) CreateInvitation(filename string, recipientUsername string) (
 	invitationPtr uuid.UUID, err error) {
 	inviteUUID := uuid.New()
+	childAccess := uuid.New()
 	if ErrorCheckInvites(filename, recipientUsername) != nil {
 		return uuid.Nil, ErrorCheckInvites(filename, recipientUsername)
 	} else {
 		var invitation Invitation
 		var user User
-		var file FilePointer
+		var accesslist AccessList
+
+		accesslist.Children.Value = append(accesslist.Children.Value, user.UUiD)
+		accesslist.Children.AccessList = append(accesslist.Children.AccessList, childAccess)
 
 		ptr, _ := json.Marshal(invitation)
-		userlib.DatastoreSet(inviteUUID, ptr)
+		recipientPublicKey, E := userlib.KeystoreGet(recipientUsername)
+		invite, _ := userlib.PKEEnc(recipientPublicKey, ptr)
+		userlib.DatastoreSet(inviteUUID, invite)
+
+		if E {
+			return uuid.Nil, Err(3)
+		}
 
 		invitation.F_owner = ConvertFilename(filename, user.UUiD)
-		invitation.RandKey = file.RandKey
+		invitation.RandKey, _ = userlib.PKEDec(user.privateKey, accesslist.RandKey)
+		invitation.ChildAccessListLocation = childAccess
 
 		return inviteUUID, nil
 	}
@@ -857,11 +874,48 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 
 func (userdata *User) AcceptInvitation(senderUsername string, invitationPtr uuid.UUID, filename string) error {
 	var user User
+	var access AccessList
 	if ErrorCheckAccept(filename, user.Username, senderUsername, invitationPtr) != nil {
 		return ErrorCheckAccept(filename, user.Username, senderUsername, invitationPtr)
 	} else {
-		// add to access list
-		// ConvertFilename(filename, user.Username)
+		var invite Invitation
+		invitation, E1 := userlib.DatastoreGet(invitationPtr)
+		if E1 {
+			return Err(3)
+		}
+
+		decryptedInvite, _ := userlib.PKEDec(user.privateKey, invitation)
+		E2 := json.Unmarshal(decryptedInvite, &invite)
+		if E2 != nil {
+			return Err(3)
+		}
+
+		f_owner := invite.F_owner
+		randkey := invite.RandKey
+		location := invite.ChildAccessListLocation
+
+		newAccessList, E3 := json.Marshal(access)
+		if E3 != nil {
+			return Err(3)
+		}
+
+		var filePtr FilePointer
+		access.Fname = ConvertFilename(filename, user.UUiD)
+		access.RandKey, _ = userlib.PKEEnc(user.PubKey, randkey)
+		filePtr.F_owner = f_owner
+		filePtr.RandKey = randkey
+
+		content, _ := json.Marshal(filePtr)
+		EncryptedContent, _ := userlib.PKEEnc(user.PubKey, content)
+
+		userlib.DatastoreSet(location, newAccessList)
+		userlib.DatastoreSet(ConvertFilename(filename, user.UUiD), EncryptedContent)
+		// store randKey in a determininstic location
+		// decrypt the invitation and check signature for tampering
+		// create a new access list at a deterministic location
+		// make their local name point to the same location as the original file
+		// put the randKey in a deterministic locaiton, encrypted with the recipient's public key
+
 	}
 	return nil
 }
