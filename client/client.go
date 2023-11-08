@@ -135,13 +135,14 @@ type File struct {
 }
 
 type SignedFile struct {
-	FileData  []byte
+	FileData  []byte // marshalled file struct
 	Signature []byte
 }
 
 type FilePointer struct { //Gets encrypted with Editor's public key
-	F_owner uuid.UUID
-	RandKey []byte
+	F_owner                  uuid.UUID
+	RandKey                  []byte
+	SignedAccessListLocation uuid.UUID
 }
 
 type BlockPointer struct { //Gets encrypted with RandKey
@@ -150,18 +151,24 @@ type BlockPointer struct { //Gets encrypted with RandKey
 }
 
 type AccessList struct {
-	Fname    uuid.UUID //Local name for this file
-	RandKey  []byte
-	Children struct {
-		Value      []uuid.UUID
-		AccessList []uuid.UUID
-	}
+	Fname    uuid.UUID               //Local name for this file
+	Children map[uuid.UUID]uuid.UUID // child name : access list location
+}
+
+type SignedAccessList struct {
+	FileData  []byte // marshalled access list struct
+	Signature []byte
 }
 
 type Invitation struct {
-	F_owner                 uuid.UUID
-	RandKey                 []byte
-	ChildAccessListLocation uuid.UUID
+	F_owner  uuid.UUID
+	RandKey  []byte
+	Location uuid.UUID
+}
+
+type SignedInvitation struct {
+	FileData  []byte // marshalled access list struct
+	Signature []byte
 }
 
 // NOTE: The following methods have toy (insecure!) implementations.
@@ -517,6 +524,7 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	if E != nil {
 		return Err(3)
 	}
+	// access list contentBytes
 	userlib.DatastoreSet(privateUUID, contentBytes)
 
 	return nil
@@ -684,6 +692,8 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 
 	var cSum []byte
 
+	// how to decrypt and check signature of file
+
 	for BlockiD != f_owner {
 		info, bol = userlib.DatastoreGet(BlockiD)
 		if !bol {
@@ -731,21 +741,101 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 	return to_return, nil
 }
 
-// helper functions --
+// helper functions
 
-/*
-*
+// Gets signed block file (content)
+func get_signed_file(f_owner uuid.UUID, BlockiD uuid.UUID) (sigfile *SignedFile, E error) {
+	var sigFile SignedFile
+	info, bol := userlib.DatastoreGet(BlockiD)
+	if !bol {
+		return &sigFile, Err(3)
+	}
+	if len([]byte(f_owner.String())) < 16 || len(info) < 16 {
+		fmt.Println("L2")
+		return &sigFile, Err(7)
+	}
+	Tupl := userlib.SymDec([]byte(f_owner.String())[:16], info)
+	E = json.Unmarshal(Tupl, &sigFile)
+	if E != nil {
+		return &sigFile, Err(3)
+	}
+	return &sigFile, nil
+}
 
-Convert filename to f_editor/f_owner
-@filename is the original user provided name
-@id is the requesting user's UUID
-@return filename in type string
+// Verifies a signed file
+func verify_signed_file(datapointer *SignedFile) (F File, B bool, Er error) {
+	filedata := (*datapointer).FileData
+	var file File
+	E := json.Unmarshal(filedata, &file)
+	if E != nil {
+		return file, false, Err(6)
+	}
+	signature := (*datapointer).Signature
+	vKey, bol := userlib.KeystoreGet("vk" + file.Creator.String())
+	if !bol {
+		return file, false, Err(3)
+	}
+	E = userlib.DSVerify(vKey, filedata, signature)
+	if E != nil {
+		return file, false, Err(6)
+	}
+	return file, true, nil
+}
 
-*
-*/
+// Verifies a signed access list
+func verify_signed_access_list(datapointer *SignedAccessList) (F File, B bool, Er error) {
+	filedata := (*datapointer).FileData
+	var file File
+	E := json.Unmarshal(filedata, &file)
+	if E != nil {
+		return file, false, Err(6)
+	}
+	signature := (*datapointer).Signature
+	vKey, bol := userlib.KeystoreGet("vk" + file.Creator.String())
+	if !bol {
+		return file, false, Err(3)
+	}
+	E = userlib.DSVerify(vKey, filedata, signature)
+	if E != nil {
+		return file, false, Err(6)
+	}
+	return file, true, nil
+}
+
+// Verifies a signed invitation
+func verify_signed_invite(datapointer *SignedInvitation) (F File, B bool, Er error) {
+	filedata := (*datapointer).FileData
+	var file File
+	E := json.Unmarshal(filedata, &file)
+	if E != nil {
+		return file, false, Err(6)
+	}
+	signature := (*datapointer).Signature
+	vKey, bol := userlib.KeystoreGet("vk" + file.Creator.String())
+	if !bol {
+		return file, false, Err(3)
+	}
+	E = userlib.DSVerify(vKey, filedata, signature)
+	if E != nil {
+		return file, false, Err(6)
+	}
+	return file, true, nil
+}
+
+// Symmetric key decryption
+func sym_decrypt(key []byte, msg []byte) (plaintext []byte, Er error) {
+	var ptext []byte
+	if len(key) != 16 || len(msg) < 16 {
+		fmt.Println("L3")
+		return ptext, Err(7)
+	}
+	ptext = userlib.SymDec(key, msg)
+	return ptext, nil
+}
+
+// Convert filename to f_editor/f_owner
 func ConvertFilename(filename string, id uuid.UUID) (f uuid.UUID) {
-	// f_editor, E := uuid.FromBytes(userlib.Hash([]byte(filename + id.String()))[:16])
-	f_editor, E := uuid.FromBytes(userlib.Hash(append([]byte(filename), []byte(id.String())...))[:16])
+	f_editor, E := uuid.FromBytes(userlib.Hash([]byte(filename + id.String()))[:16])
 	if E != nil {
 		return uuid.Nil
 	}
@@ -753,15 +843,7 @@ func ConvertFilename(filename string, id uuid.UUID) (f uuid.UUID) {
 
 }
 
-/*
-*
-
-Convert username to uuid in type string
-@username in type string
-@return uuid (UUID)
-
-*
-*/
+// Convert username to uuid in type string
 func ConvertUsername(username string) (u uuid.UUID) {
 	user_n, E := uuid.FromBytes(userlib.Hash([]byte(username))[:16])
 	if E != nil {
@@ -770,21 +852,10 @@ func ConvertUsername(username string) (u uuid.UUID) {
 	return user_n
 }
 
-/*
-*
-
-/**
-
-Error checking for CreateInvitation
-@filename of file to be shared
-@recipientUsername string version of recipient name
-@error, else nil
-
-*
-*/
-func ErrorCheckInvites(filename string, recipientUsername string) error {
-	_, UsernameOK := userlib.DatastoreGet(ConvertUsername(recipientUsername))
-	_, FileOK := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
+// Error checking for CreateInvitation
+func ErrorCheckInvites(filename string, senderUsername string) error {
+	_, UsernameOK := userlib.DatastoreGet(ConvertUsername(senderUsername))
+	_, FileOK := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(senderUsername)))
 
 	if !UsernameOK {
 		return Err(4)
@@ -793,43 +864,53 @@ func ErrorCheckInvites(filename string, recipientUsername string) error {
 	} else {
 		return nil
 	}
-
 }
 
-/*
-*
+// Gets FilePointer
+func getFilePointer(filename uuid.UUID, key userlib.PKEDecKey) (*FilePointer, error) {
+	info, ok := userlib.DatastoreGet(filename)
+	if ok {
+		var filepointer FilePointer
+		fpdata, E := userlib.PKEDec(key, info)
+		if E != nil {
+			return nil, Err(3)
+		}
 
-Error checking for AcceptInvitation
-@filename of editor's selected new filename
-@recipientUsername string version of recipient name
-@senderUsername string version of sender's name
-@error, else nil
+		E = json.Unmarshal(fpdata, &filepointer)
+		if E != nil {
+			return nil, Err(3)
+		}
 
-*
-*/
+		return &filepointer, nil
+	} else {
+		return nil, Err(8)
+	}
+}
+
+// Error checking for AcceptInvitation
 func ErrorCheckAccept(filename string, recipientUsername string, senderUsername string, invitationPtr uuid.UUID) error {
-	_, UUIDOK := userlib.DatastoreGet(invitationPtr)
+	_, InviteUUIDOK := userlib.DatastoreGet(invitationPtr)
 	_, FileRepeatOK := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(recipientUsername)))
 
-	if !UUIDOK {
+	if !InviteUUIDOK {
 		return Err(6)
 	} else if !FileRepeatOK {
 		return Err(2)
 	} else {
 		return nil
 	}
-
-	/**
-	_, RevokeError := DatastoreGet(userlib.DatastoreGet(recipientUsername) + RL + randomKey)
-	else if RevokeError {
-		return E(6)
-	}
-	**/
-
-	// TODO check for tampering and finish revoke check
 }
 
-// TODO signature helper function
+// Error checking for RevokeInvite
+func ErrorCheckRevoke(filename string, recipientUsername string, ownerUsername string) error {
+	_, FileOK := userlib.DatastoreGet(ConvertFilename(filename, ConvertUsername(ownerUsername)))
+
+	if !FileOK {
+		return Err(8)
+	} else {
+		return nil
+	}
+}
 
 /*
 *
@@ -841,85 +922,241 @@ Create Invitation
 
 *
 */
-func (userdata *User) CreateInvitation(filename string, recipientUsername string) (
-	invitationPtr uuid.UUID, err error) {
-	inviteUUID := uuid.New()
-	childAccess := uuid.New()
-	if ErrorCheckInvites(filename, recipientUsername) != nil {
-		return uuid.Nil, ErrorCheckInvites(filename, recipientUsername)
-	} else {
-		var invitation Invitation
-		var user User
-		var accesslist AccessList
+func (userdata *User) CreateInvitation(filename string, recipientUsername string) (invitationPtr uuid.UUID, err error) {
+	var accessList AccessList
+	var signedAccessListInstance SignedAccessList
+	var invite Invitation
+	var signedInvite SignedInvitation
 
-		accesslist.Children.Value = append(accesslist.Children.Value, user.UUiD)
-		accesslist.Children.AccessList = append(accesslist.Children.AccessList, childAccess)
-
-		ptr, _ := json.Marshal(invitation)
-		recipientPublicKey, E := userlib.KeystoreGet(recipientUsername)
-		invite, _ := userlib.PKEEnc(recipientPublicKey, ptr)
-		userlib.DatastoreSet(inviteUUID, invite)
-
-		if E {
-			return uuid.Nil, Err(3)
-		}
-
-		invitation.F_owner = ConvertFilename(filename, user.UUiD)
-		invitation.RandKey, _ = userlib.PKEDec(user.privateKey, accesslist.RandKey)
-		invitation.ChildAccessListLocation = childAccess
-
-		return inviteUUID, nil
+	if ErrorCheckInvites(filename, userdata.Username) != nil {
+		return uuid.Nil, ErrorCheckInvites(filename, userdata.Username)
 	}
+
+	// Converts raw data to hashed types
+	convertedRecipientUsername := ConvertUsername(recipientUsername)
+	convertedFilename := ConvertFilename(filename, userdata.UUiD)
+
+	// Populated invitation
+	location := uuid.New()
+	invite.Location = location
+	invite.F_owner = convertedFilename
+
+	filePointer, E := getFilePointer(convertedFilename, userdata.privateKey)
+	if E != nil {
+		return uuid.Nil, E
+	}
+	invite.RandKey = filePointer.RandKey
+
+	// Verifies signature of access list
+	signedAccessListContent, _ := userlib.DatastoreGet(filePointer.SignedAccessListLocation)
+	json.Unmarshal(signedAccessListContent, &signedAccessListInstance)
+
+	_, bad, _ := verify_signed_access_list(&signedAccessListInstance)
+	if bad {
+		_, _, E := verify_signed_access_list(&signedAccessListInstance)
+		return uuid.Nil, E
+	}
+
+	// Adds recipient to their access list
+	json.Unmarshal(signedAccessListInstance.FileData, &accessList)
+	accessList.Children[convertedRecipientUsername] = location
+	fileData, E := json.Marshal(accessList)
+	if E != nil {
+		return uuid.Nil, Err(3)
+	}
+
+	// Signs the newly updated access list
+	signedAccessListInstance.Signature, E = userlib.DSSign(userdata.signKey, fileData)
+	fileData, E = json.Marshal(signedAccessListInstance)
+	if E != nil {
+		return uuid.Nil, Err(3)
+	}
+
+	// Puts newly signed and updated access list at old location (updated!)
+	userlib.DatastoreSet(filePointer.SignedAccessListLocation, fileData)
+
+	// Encrypts then signs invite
+	inviteContent, E := json.Marshal(invite)
+	if E != nil {
+		return uuid.Nil, Err(3)
+	}
+
+	key, ok := userlib.KeystoreGet(recipientUsername)
+	if !ok {
+		return uuid.Nil, Err(6)
+	}
+
+	inviteCiphertext, E := userlib.PKEEnc(key, inviteContent)
+	if E != nil {
+		return uuid.Nil, Err(3)
+	}
+
+	signedInvite.FileData = inviteCiphertext
+	signKey, E := userlib.DSSign(userdata.signKey, inviteCiphertext)
+	signedInvite.Signature = signKey
+
+	signedInviteMarshaled, E := json.Marshal(signedInvite)
+	if E != nil {
+		return uuid.Nil, Err(3)
+	}
+
+	// Generates random location to put the invite and send
+	invitePtr := uuid.New()
+	userlib.DatastoreSet(invitePtr, signedInviteMarshaled)
+
+	return invitePtr, nil
 }
 
 func (userdata *User) AcceptInvitation(senderUsername string, invitationPtr uuid.UUID, filename string) error {
-	var user User
-	var access AccessList
-	if ErrorCheckAccept(filename, user.Username, senderUsername, invitationPtr) != nil {
-		return ErrorCheckAccept(filename, user.Username, senderUsername, invitationPtr)
-	} else {
-		var invite Invitation
-		invitation, E1 := userlib.DatastoreGet(invitationPtr)
-		if E1 {
-			return Err(3)
-		}
+	var signedInvite SignedInvitation
+	var invite Invitation
+	var filePointer FilePointer
+	var accessList AccessList
+	var signedAccessList SignedAccessList
 
-		decryptedInvite, _ := userlib.PKEDec(user.privateKey, invitation)
-		E2 := json.Unmarshal(decryptedInvite, &invite)
-		if E2 != nil {
-			return Err(3)
-		}
-
-		f_owner := invite.F_owner
-		randkey := invite.RandKey
-		location := invite.ChildAccessListLocation
-
-		newAccessList, E3 := json.Marshal(access)
-		if E3 != nil {
-			return Err(3)
-		}
-
-		var filePtr FilePointer
-		access.Fname = ConvertFilename(filename, user.UUiD)
-		access.RandKey, _ = userlib.PKEEnc(user.PubKey, randkey)
-		filePtr.F_owner = f_owner
-		filePtr.RandKey = randkey
-
-		content, _ := json.Marshal(filePtr)
-		EncryptedContent, _ := userlib.PKEEnc(user.PubKey, content)
-
-		userlib.DatastoreSet(location, newAccessList)
-		userlib.DatastoreSet(ConvertFilename(filename, user.UUiD), EncryptedContent)
-		// store randKey in a determininstic location
-		// decrypt the invitation and check signature for tampering
-		// create a new access list at a deterministic location
-		// make their local name point to the same location as the original file
-		// put the randKey in a deterministic locaiton, encrypted with the recipient's public key
-
+	// Performs basic error checking
+	if ErrorCheckAccept(filename, userdata.Username, senderUsername, invitationPtr) != nil {
+		return ErrorCheckAccept(filename, userdata.Username, senderUsername, invitationPtr)
 	}
+
+	f_editor := ConvertFilename(filename, userdata.UUiD)
+
+	// Loads in the byte[] invite back into a struct
+	signedInviteContent, ok := userlib.DatastoreGet(invitationPtr)
+	if !ok {
+		return Err(8)
+	}
+
+	E := json.Unmarshal(signedInviteContent, &signedInvite)
+	if E != nil {
+		return Err(3)
+	}
+
+	// Verify signed invite
+	_, bad, E := verify_signed_invite(&signedInvite)
+	if bad {
+		return E
+	}
+
+	E = json.Unmarshal(signedInvite.FileData, &invite)
+	if E != nil {
+		return Err(3)
+	}
+
+	// Populating filePointer with information from the invite
+	filePointer.F_owner = invite.F_owner
+	filePointer.RandKey = invite.RandKey
+	filePointer.SignedAccessListLocation = invite.Location
+
+	// Encrypting the file pointer information
+	filePointerContent, E := json.Marshal(filePointer)
+	if E != nil {
+		return Err(3)
+	}
+
+	EncKey := userdata.PubKey
+	filePointerCiphertext, E := userlib.PKEEnc(EncKey, filePointerContent)
+
+	// Store filePointer at key f_editor
+	userlib.DatastoreSet(f_editor, filePointerCiphertext)
+
+	// Populating/creating new accessList
+	accessList.Fname = f_editor
+	accessListContent, E := json.Marshal(accessList)
+	if E != nil {
+		return Err(3)
+	}
+
+	// Populating signedAccessList with signature
+	signedAccessList.FileData = accessListContent
+
+	accessListSignature, E := userlib.DSSign(userdata.signKey, accessListContent)
+	if E != nil {
+		return Err(3)
+	}
+	signedAccessList.Signature = accessListSignature
+
+	signedAccessListContent, E := json.Marshal(signedAccessList)
+	if E != nil {
+		return Err(3)
+	}
+
+	// Store signedAccessList at location given by sender in invite
+	userlib.DatastoreSet(invite.Location, signedAccessListContent)
+
 	return nil
 }
 
+// NOT DONE YET
+// Calls load file and store file to move!
 func (userdata *User) RevokeAccess(filename string, recipientUsername string) error {
+	// Generate a new key and give to everyone
+	// Move the file and change the previous pointer
+	// Make sure to check and sign
+	// var accessList AccessList
+
+	if ErrorCheckRevoke(filename, recipientUsername, userdata.Username) != nil {
+		return ErrorCheckRevoke(filename, recipientUsername, userdata.Username)
+	}
+
+	// convertedRevokeUsername := ConvertUsername(recipientUsername)
+
+	content, E := userdata.LoadFile(filename)
+	if E != nil {
+		return Err(3)
+	}
+
+	newRandomFilename := string(userlib.RandomBytes(16)[:])
+	E = userdata.StoreFile(newRandomFilename, content)
+	if E != nil {
+		return Err(3)
+	}
+
+	oldFilePointer, E := getFilePointer(ConvertFilename(filename, userdata.UUiD), userdata.privateKey)
+	newfilePointer, E := getFilePointer(ConvertFilename(newRandomFilename, userdata.UUiD), userdata.privateKey)
+	if E != nil {
+		return Err(8)
+	}
+
+	oldRandKey := oldFilePointer.RandKey
+	oldF_owner := oldFilePointer.F_owner
+
+	newRandKey := newfilePointer.RandKey
+	newF_owner := newfilePointer.F_owner
+
+	newfilePointer.SignedAccessListLocation = oldFilePointer.SignedAccessListLocation
+	newFilePointerContent, E := json.Marshal(newfilePointer)
+	newFilePointerCiphertext, E := userlib.PKEEnc(userdata.PubKey, newFilePointerContent)
+
+	userlib.DatastoreSet(ConvertFilename(newRandomFilename, userdata.UUiD), newFilePointerCiphertext)
+
+	EncBlockID, ok := userlib.DatastoreGet(newF_owner)
+	if !ok {
+		return Err(8)
+	}
+
+	var blockPointer BlockPointer
+	DecBlockID := userlib.SymDec(newRandKey, EncBlockID)
+	E = json.Unmarshal(DecBlockID, &blockPointer)
+	if E != nil {
+		return Err(3)
+	}
+
+	EncBlockID, ok = userlib.DatastoreGet(oldF_owner)
+	if !ok {
+		return Err(8)
+	}
+
+	var oldblockPointer BlockPointer
+	DecBlockID = userlib.SymDec(oldRandKey, EncBlockID)
+	E = json.Unmarshal(DecBlockID, &oldblockPointer)
+	if E != nil {
+		return Err(3)
+	}
+
+	oldblockPointer.BlockiD = blockPointer.BlockiD
+
+	// oldBlockContent, _ := json.Marshal(oldblockPointer)
+
 	return nil
 }
