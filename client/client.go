@@ -140,9 +140,8 @@ type SignedFile struct {
 }
 
 type FilePointer struct { //Gets encrypted with Editor's public key
-	F_owner                  uuid.UUID
-	RandKey                  []byte
-	SignedAccessListLocation uuid.UUID
+	F_owner uuid.UUID
+	RandKey []byte
 }
 
 type BlockPointer struct { //Gets encrypted with RandKey
@@ -169,6 +168,10 @@ type Invitation struct {
 type SignedInvitation struct {
 	FileData  []byte // marshalled access list struct
 	Signature []byte
+}
+
+type AL_loc_holder struct {
+	AL_loc uuid.UUID
 }
 
 // NOTE: The following methods have toy (insecure!) implementations.
@@ -372,6 +375,7 @@ func GetUser(username string, password string) (userdataptr *User, err error) {
 func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	f_editor, E := uuid.FromBytes(userlib.Hash([]byte(filename + userdata.UUiD.String()))[:16])
 	if E != nil {
+		fmt.Println("Case1")
 		return Err(3)
 	}
 
@@ -387,11 +391,13 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 		found = true
 		fpdata, E := userlib.PKEDec(userdata.privateKey, info)
 		if E != nil {
+			fmt.Println("Case2")
 			return Err(3)
 		}
 		var filepointer FilePointer
 		E = json.Unmarshal(fpdata, &filepointer)
 		if E != nil {
+			fmt.Println("Case3")
 			return Err(3)
 		}
 
@@ -400,17 +406,19 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 
 		info, bol := userlib.DatastoreGet(f_owner)
 		if !bol {
+			fmt.Println("Case4")
 			return Err(3)
 		}
 
 		if len(RandKey) != 16 || len(info) < 16 {
-			fmt.Println("case 1")
+			fmt.Println("Case5")
 			return Err(7)
 		}
 		bpdata := userlib.SymDec(RandKey, info)
 		var blockpointer BlockPointer
 		E = json.Unmarshal(bpdata, &blockpointer)
 		if E != nil {
+			fmt.Println("Case5")
 			return Err(3)
 		}
 
@@ -419,17 +427,20 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	} else {
 		RandKey, E = userlib.HashKDF(userdata.EncPrivKey[:16], userlib.RandomBytes(16))
 		if E != nil {
+			fmt.Println("Case6")
 			return Err(3)
 		}
 		RandKey = RandKey[:16]
 
 		f_owner, E = uuid.FromBytes(userlib.Hash(append([]byte(f_editor.String()), []byte(userdata.UUiD.String())...))[:16])
 		if E != nil {
+			fmt.Println("Case7")
 			return Err(3)
 		}
 
 		symKey, E = userlib.HashKDF(userdata.EncPrivKey[:16], userlib.RandomBytes(16))
 		if E != nil {
+			fmt.Println("Case8")
 			return Err(3)
 		}
 		symKey = symKey[:16]
@@ -438,7 +449,7 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	BlockiD := uuid.New()
 
 	if len(symKey) < 16 || len([]byte(userdata.UUiD.String())) < 16 {
-		fmt.Println("case 2")
+		fmt.Println("Case9")
 		return Err(7)
 	}
 	cont := userlib.SymEnc(symKey, []byte(userdata.UUiD.String())[:16], content)
@@ -450,20 +461,23 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 
 	fBlock, E := json.Marshal(file)
 	if E != nil {
+		fmt.Println("Case10")
 		return Err(3)
 	}
 	signature, E := userlib.DSSign(userdata.signKey, fBlock)
 	if E != nil {
+		fmt.Println("Case11")
 		return Err(3)
 	}
 	var sigFile SignedFile
 	sigFile.FileData, sigFile.Signature = fBlock, signature
 	toSave, E := json.Marshal(sigFile)
 	if E != nil {
+		fmt.Println("Case12")
 		return Err(3)
 	}
 	if len([]byte(f_owner.String())) < 16 || len([]byte(userdata.UUiD.String())) < 16 {
-		fmt.Println("case 5")
+		fmt.Println("Case13")
 		return Err(7)
 	}
 	contentBytes := userlib.SymEnc([]byte(f_owner.String())[:16], []byte(userdata.UUiD.String())[:16], toSave)
@@ -474,10 +488,11 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	bpointer.SymKey = symKey
 	toSave, E = json.Marshal(bpointer)
 	if E != nil {
+		fmt.Println("Case14")
 		return Err(3)
 	}
 	if len(RandKey) != 16 || len([]byte(userdata.UUiD.String())) < 16 {
-		fmt.Println("case 3")
+		fmt.Println("Case15")
 		return Err(7)
 	}
 	contentBytes = userlib.SymEnc(RandKey, []byte(userdata.UUiD.String())[:16], toSave)
@@ -493,40 +508,32 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	//------------------
 	toSave, E = json.Marshal(fpointer)
 	if E != nil {
+		fmt.Println("Case17")
 		return Err(3)
 	}
+	fmt.Println(len(toSave))
 	contentBytes, E = userlib.PKEEnc(userdata.PubKey, toSave)
 	if E != nil {
+		fmt.Println("Case23")
 		return Err(3)
 	}
 	userlib.DatastoreSet(f_editor, contentBytes)
 
-	var accessList AccessList
-	accessList.Fname = f_owner
-	toSave, E = json.Marshal(accessList)
+	AL_location, E := uuid.NewUUID()
+	if E != nil {
+		fmt.Println("Case16")
+		return Err(3)
+	}
 
-	// can you change it so that there is a deterministic location for the access list?
-	// like filename + UUID + AL + random number or something like that
-
+	AL_location_location, E := get_AL_loc_loc(f_editor)
+	E = store_AL_location(AL_location, AL_location_location, userdata.PubKey)
 	if E != nil {
 		return Err(3)
 	}
-	if len(RandKey) != 16 || len([]byte(userdata.UUiD.String())) < 16 {
-		fmt.Println("case 4")
-		return Err(7)
-	}
-	contentBytes = userlib.SymEnc(RandKey, []byte(userdata.UUiD.String())[:16], toSave)
-	Lbytes, E := userlib.HashKDF(userdata.EncPrivKey[:16], []byte("AccessList"))
+	E = store_AL(f_editor, AL_location, RandKey, *userdata)
 	if E != nil {
 		return Err(3)
 	}
-	privateUUID, E := uuid.FromBytes(Lbytes[:16])
-	if E != nil {
-		return Err(3)
-	}
-	// access list contentBytes
-	userlib.DatastoreSet(privateUUID, contentBytes)
-
 	return nil
 }
 
@@ -695,44 +702,23 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 	// how to decrypt and check signature of file
 
 	for BlockiD != f_owner {
-		info, bol = userlib.DatastoreGet(BlockiD)
-		if !bol {
-			return to_return, Err(3)
+		sigFile, E := get_signed_file(f_owner, BlockiD)
+		if E != nil {
+			return to_return, E
 		}
-		if len([]byte(f_owner.String())) < 16 || len(info) < 16 {
-			fmt.Println("L2")
+		file, bol, E := verify_signed_file(sigFile)
+		if E != nil {
+			return to_return, E
+		}
+		if !bol {
 			return to_return, Err(7)
 		}
-		Tupl := userlib.SymDec([]byte(f_owner.String())[:16], info)
-		var sigFile SignedFile
-		E = json.Unmarshal(Tupl, &sigFile)
+		toAdd, E := sym_decrypt(symKey, file.Content)
 		if E != nil {
-			return to_return, Err(3)
+			return to_return, E
 		}
-		filedata := sigFile.FileData
-		var file File
-		E = json.Unmarshal(filedata, &file)
-		if E != nil {
-			return to_return, Err(6)
-		}
-		signature := sigFile.Signature
-		vKey, bol := userlib.KeystoreGet("vk" + file.Creator.String())
-		if !bol {
-			return to_return, Err(3)
-		}
-		E = userlib.DSVerify(vKey, filedata, signature)
-		if E != nil {
-			return to_return, Err(6)
-		}
-
-		if len(symKey) != 16 || len(file.Content) < 16 {
-			fmt.Println("L3")
-			return to_return, Err(7)
-		}
-		toAdd := userlib.SymDec(symKey, file.Content)
 		toAdd = reverseBytes(toAdd)
 		cSum = append(cSum, toAdd...)
-
 		BlockiD = file.PrevBlock
 	}
 
@@ -742,6 +728,60 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 }
 
 // helper functions
+
+// stores the location of accesslist
+func store_AL_location(AL_location uuid.UUID, AL_location_location uuid.UUID, pubKey userlib.PublicKeyType) (E error) {
+	var AL_loc_container AL_loc_holder
+	AL_loc_container.AL_loc = AL_location
+	toSave, E := json.Marshal(AL_loc_container)
+	if E != nil {
+		fmt.Println("Case16")
+		return Err(3)
+	}
+	contentBytes, E := userlib.PKEEnc(pubKey, toSave)
+	if E != nil {
+		fmt.Println("Case16")
+		return Err(3)
+	}
+	userlib.DatastoreSet(AL_location_location, contentBytes)
+	return nil
+}
+
+func store_AL(f_editor uuid.UUID, AL_location uuid.UUID, RandKey []byte, userdata User) (E error) {
+	var accessList AccessList
+	accessList.Fname = f_editor
+	toSave, E := json.Marshal(accessList)
+	if E != nil {
+		fmt.Println("Case18")
+		return Err(3)
+	}
+	var signedAL SignedAccessList
+	signedAL.FileData = toSave
+	signature, E := userlib.DSSign(userdata.signKey, toSave)
+	if E != nil {
+		fmt.Println("Case19")
+		return Err(3)
+	}
+	signedAL.Signature = signature
+	toSave, E = json.Marshal(signedAL)
+	if E != nil {
+		fmt.Println("Case20")
+		return Err(3)
+	}
+	if len(RandKey) != 16 || len([]byte(userdata.UUiD.String())) < 16 {
+		fmt.Println("Case21")
+		return Err(7)
+	}
+	encAccList := userlib.SymEnc(RandKey, []byte(userdata.UUiD.String())[:16], toSave)
+
+	userlib.DatastoreSet(AL_location, encAccList)
+	return nil
+}
+
+// gets address for the encrypted accesslist location from f_editor, filename, uuid
+func get_AL_loc_loc(f_editor uuid.UUID) (AL_loc_loc uuid.UUID, E error) {
+	return uuid.FromBytes(userlib.Hash([]byte(f_editor.String() + "AL")))
+}
 
 // Gets signed block file (content)
 func get_signed_file(f_owner uuid.UUID, BlockiD uuid.UUID) (sigfile *SignedFile, E error) {
@@ -780,6 +820,45 @@ func verify_signed_file(datapointer *SignedFile) (F File, B bool, Er error) {
 		return file, false, Err(6)
 	}
 	return file, true, nil
+}
+
+// Fetches the location of an access list
+func get_AL_loc(AL_loc_loc uuid.UUID, userdata User) (AL_loc uuid.UUID, E error) {
+	AL_loc_enc, bol := userlib.DatastoreGet(AL_loc_loc)
+	if !bol {
+		return AL_loc, Err(3)
+	}
+
+	AL_loc_holder_bytes, E := userlib.PKEDec(userdata.privateKey, AL_loc_enc)
+	if E != nil {
+		return AL_loc, Err(3)
+	}
+
+	var AL_location_holder AL_loc_holder
+	E = json.Unmarshal(AL_loc_holder_bytes, AL_location_holder)
+	if E != nil {
+		return AL_loc, Err(3)
+	}
+	return AL_location_holder.AL_loc, nil
+}
+
+// Fetches a signed access list
+func get_AccList(AL_loc uuid.UUID, RandKey []byte, userdata User) (AL SignedAccessList, E error) {
+	AL_enc, bol := userlib.DatastoreGet(AL_loc)
+	if !bol {
+		return AL, Err(3)
+	}
+
+	AL_bytes, E := sym_decrypt(RandKey, AL_enc)
+	if E != nil {
+		return AL, Err(3)
+	}
+
+	E = json.Unmarshal(AL_bytes, AL)
+	if E != nil {
+		return AL, Err(3)
+	}
+	return AL, nil
 }
 
 // Verifies a signed access list
@@ -939,6 +1018,10 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	// Populated invitation
 	location := uuid.New()
 	invite.Location = location
+
+	// Note: THIS IS NOT WHAT F OWNER IS SUPPOSED TO BE. F Owner is a singular value.
+	// Note: This implementation gives the child the f_editor of the sharer. This is incorrect.
+	// Note: They should provide the f_owner value not their own f_editor value.
 	invite.F_owner = convertedFilename
 
 	filePointer, E := getFilePointer(convertedFilename, userdata.privateKey)
@@ -948,8 +1031,13 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	invite.RandKey = filePointer.RandKey
 
 	// Verifies signature of access list
-	signedAccessListContent, _ := userlib.DatastoreGet(filePointer.SignedAccessListLocation)
-	json.Unmarshal(signedAccessListContent, &signedAccessListInstance)
+
+	// Note: Use the below 3 helper functions to get the signed AccessList
+	//-- get_AL_loc_loc()
+	//-- get_AL_loc()
+	//-- get_AccList()
+	//-- signedAccessListContent, _ := userlib.DatastoreGet(filePointer.SignAccListLoc)
+	//--json.Unmarshal(signedAccessListContent, &signedAccessListInstance)
 
 	_, bad, _ := verify_signed_access_list(&signedAccessListInstance)
 	if bad {
@@ -973,7 +1061,7 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	}
 
 	// Puts newly signed and updated access list at old location (updated!)
-	userlib.DatastoreSet(filePointer.SignedAccessListLocation, fileData)
+	//-- userlib.DatastoreSet(filePointer.SignAccListLoc, fileData)
 
 	// Encrypts then signs invite
 	inviteContent, E := json.Marshal(invite)
@@ -1046,7 +1134,7 @@ func (userdata *User) AcceptInvitation(senderUsername string, invitationPtr uuid
 	// Populating filePointer with information from the invite
 	filePointer.F_owner = invite.F_owner
 	filePointer.RandKey = invite.RandKey
-	filePointer.SignedAccessListLocation = invite.Location
+	//-- filePointer.SignAccListLoc = invite.Location
 
 	// Encrypting the file pointer information
 	filePointerContent, E := json.Marshal(filePointer)
@@ -1124,7 +1212,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	newRandKey := newfilePointer.RandKey
 	newF_owner := newfilePointer.F_owner
 
-	newfilePointer.SignedAccessListLocation = oldFilePointer.SignedAccessListLocation
+	//-- newfilePointer.SignAccListLoc = oldFilePointer.SignAccListLoc
 	newFilePointerContent, E := json.Marshal(newfilePointer)
 	newFilePointerCiphertext, E := userlib.PKEEnc(userdata.PubKey, newFilePointerContent)
 
