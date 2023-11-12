@@ -1066,19 +1066,14 @@ func inMap(uuid uuid.UUID, children map[uuid.UUID]uuid.UUID) bool {
 
 // BFS
 func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byte, f_owner uuid.UUID) (AccessList, error) {
-	fmt.Println("OK BFS")
 	visited := make(map[uuid.UUID]bool)
 	stack := []AccessList{owner}
-	fmt.Println(owner)
 
 	for len(stack) > 0 {
-		fmt.Println("OK BFS")
 		node := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		fmt.Println(node.Children)
 
 		for id, location := range node.Children {
-			fmt.Println("OK BFS")
 			if !visited[id] {
 				visited[id] = true
 				if id != except {
@@ -1126,9 +1121,6 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 					filepointer.F_owner = f_owner
 					filepointer.RandKey = NewRandKey
 
-					fmt.Println(filepointer.F_owner)
-					fmt.Println(filepointer.RandKey)
-
 					filepointerMarshal, err := json.Marshal(filepointer)
 					if err != nil {
 						return AL, Err(3)
@@ -1139,14 +1131,11 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 					userlib.DatastoreSet(AL.Fname, filePointerCiphertext)
 
 				} else {
-					fmt.Println("EXCEPT")
-					fmt.Println(id)
 					delete(node.Children, except)
 				}
 			}
 		}
 	}
-	fmt.Println(owner)
 	return owner, nil
 
 }
@@ -1248,7 +1237,7 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	uuidChild := user.UUiD
 
 	accessList.Children[uuidChild] = location
-	fmt.Println(accessList.Children)
+
 	accessListData, E := json.Marshal(accessList)
 	if E != nil {
 		fmt.Println("1200")
@@ -1394,7 +1383,6 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return ErrorCheckRevoke(filename, userdata.UUiD)
 	}
 
-	fmt.Println("OK")
 	var user User
 
 	convertedUser := ConvertUsername(recipientUsername)
@@ -1409,7 +1397,6 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	}
 
 	Recipientuuid := user.UUiD
-	fmt.Println("OK")
 
 	// Saves old random key to use to decrypt
 	oldFilePointer, E := getFilePointer(ConvertFilename(filename, userdata.UUiD), userdata.privateKey)
@@ -1419,7 +1406,6 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	}
 
 	oldKey := oldFilePointer.RandKey
-	fmt.Println("OK")
 
 	// Checks if recipient is in owner's access list (children)
 	convertedFilename, E := uuid.FromBytes(userlib.Hash([]byte(filename + userdata.UUiD.String()))[:16])
@@ -1428,7 +1414,6 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		fmt.Println("1170")
 		return Err(3)
 	}
-	fmt.Println("OK")
 	SignedALLoc, E := get_AL_loc(EncALLoc, *userdata)
 	if E != nil {
 		fmt.Println("1175")
@@ -1439,7 +1424,6 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		fmt.Println("1180")
 		return Err(3)
 	}
-	fmt.Println("OK")
 
 	_, bad, _ := verify_signed_access_list(&SignedAL)
 	if bad {
@@ -1453,12 +1437,10 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return Err(3)
 	}
 
-	fmt.Println(accessList.Children)
 	if !inMap(Recipientuuid, accessList.Children) {
 		fmt.Println("NOT IN MAP")
 		return Err(4)
 	}
-	fmt.Println("OK")
 
 	// Loads in all content from filename
 	content, E = userdata.LoadFile(filename)
@@ -1467,7 +1449,6 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return Err(3)
 	}
 
-	fmt.Println("OK")
 	// Stores that file again, with the same name (this time should place the Block in a different location)
 	E = userdata.StoreFile(filename, content)
 	if E != nil {
@@ -1524,7 +1505,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	if E != nil {
 		return Err(3)
 	}
-	fmt.Println("OK")
+
 	newALLocLoc, E := get_AL_loc_loc(convertedFilename)
 	if E != nil {
 		return Err(3)
@@ -1534,10 +1515,6 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return Err(3)
 	}
 	userlib.DatastoreSet(newALLoc, newAccess)
-
-	fmt.Println("OK")
-
-	fmt.Println("OK last")
 
 	return nil
 }

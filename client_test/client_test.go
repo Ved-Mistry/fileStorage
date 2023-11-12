@@ -814,6 +814,51 @@ var _ = Describe("Client Tests", func() {
 
 		})
 
+		Specify("Check this test case, store file then child access", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			invite, err = bob.CreateInvitation(bobFile, "charles")
+			Expect(err).To(BeNil())
+
+			err = charles.AcceptInvitation("bob", invite, charlesFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			bob.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Checking that Charles can load the file.")
+			data, err := charles.LoadFile(charlesFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentTwo)))
+
+		})
+
 		Specify("Edit Datastore, test every function", func() {
 			userlib.DebugMsg("Add stuff to datastore")
 
@@ -1019,7 +1064,7 @@ var _ = Describe("Client Tests", func() {
 			Expect(err).ToNot(BeNil())
 			Expect(data).ToNot(Equal([]byte(contentOne + contentThree + contentTwo + contentThree + contentThree + contentThree + contentThree + contentTwo)))
 
-			userlib.DebugMsg("Checking that Doris can load the file.")
+			userlib.DebugMsg("Checking that Alice can load the file.")
 			data, err = alice.LoadFile(aliceFile)
 			Expect(err).To(BeNil())
 			Expect(data).To(Equal([]byte(contentOne + contentThree + contentTwo + contentThree + contentThree + contentThree + contentThree + contentTwo)))
@@ -1255,7 +1300,7 @@ var _ = Describe("Client Tests", func() {
 
 			userlib.DebugMsg("Storing file data: %s", contentOne)
 			err = alice.StoreFile(aliceFile, []byte(contentOne))
-			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeNil())
 		})
 
 		Specify("Basic Test: Testing Single User Store/Load/Append.", func() {
