@@ -427,7 +427,6 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 		}
 
 		symKey = blockpointer.SymKey
-		return nil
 	} else {
 		RandKey, E = userlib.HashKDF(userdata.EncPrivKey[:16], userlib.RandomBytes(16))
 		if E != nil {
@@ -509,7 +508,6 @@ func (userdata *User) StoreFile(filename string, content []byte) (err error) {
 	var fpointer FilePointer
 	fpointer.F_owner = f_owner
 	fpointer.RandKey = RandKey
-	//------------------
 	toSave, E = json.Marshal(fpointer)
 	if E != nil {
 		fmt.Println("Case17")
