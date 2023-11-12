@@ -248,5 +248,517 @@ var _ = Describe("Client Tests", func() {
 			Expect(err).ToNot(BeNil())
 		})
 
+		Specify("Test Edge Cases", func() {
+			userlib.DebugMsg("Null Filename")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile("", []byte(contentOne))
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			_, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			_, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Checking that Alice can still load the file.")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).ToNot(BeNil())
+			Expect(data).ToNot(Equal([]byte(contentOne)))
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Alice can still load the file.")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).ToNot(BeNil())
+			Expect(data).ToNot(Equal([]byte(contentOne)))
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Alice can still load the file.")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Bob creating invite for Charles for file %s, and Charlie accepting invite under name %s.", bobFile, charlesFile)
+			invite, err = bob.CreateInvitation(bobFile, "charles")
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Alice can still load the file.")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Bob creating invite for Charles for file %s, and Charlie accepting invite under name %s.", bobFile, charlesFile)
+			invite, err = bob.CreateInvitation(bobFile, "charles")
+			Expect(err).To(BeNil())
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			err = charles.AcceptInvitation("bob", invite, charlesFile)
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Alice can still load the file.")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Bob creating invite for Charles for file %s, and Charlie accepting invite under name %s.", bobFile, charlesFile)
+			invite, err = bob.CreateInvitation(bobFile, "charles")
+			Expect(err).To(BeNil())
+
+			err = charles.AcceptInvitation("bob", invite, charlesFile)
+			Expect(err).To(BeNil())
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).ToNot(BeNil())
+			Expect(data).ToNot(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Charles can load the file.")
+			data, err = charles.LoadFile(charlesFile)
+			Expect(err).ToNot(BeNil())
+			Expect(data).ToNot(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Alice revoking Bob's access from %s.", aliceFile)
+			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).ToNot(BeNil())
+
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Alice can still load the file.")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Bob creating invite for Charles for file %s, and Charlie accepting invite under name %s.", bobFile, charlesFile)
+			invite, err = bob.CreateInvitation(bobFile, "charles")
+			Expect(err).To(BeNil())
+
+			err = charles.AcceptInvitation("bob", invite, charlesFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Charles can load the file.")
+			data, err = charles.LoadFile(charlesFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Alice revoking Bob's access from %s.", aliceFile)
+			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).ToNot(BeNil())
+
+		})
+
+		Specify("Edit Datastore, test every function", func() {
+			userlib.DebugMsg("Add stuff to datastore")
+
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			charles, err = client.InitUser("charles", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Alice storing file %s with content: %s", aliceFile, contentOne)
+			alice.StoreFile(aliceFile, []byte(contentOne))
+
+			userlib.DebugMsg("Bob storing file %s with content: %s", bobFile, contentTwo)
+			alice.StoreFile(bobFile, []byte(contentTwo))
+
+			userlib.DebugMsg("Charles storing file %s with content: %s", charlesFile, contentThree)
+			alice.StoreFile(charlesFile, []byte(contentThree))
+
+			userlib.DebugMsg("Alice creating invite for Bob for file %s, and Bob accepting invite under name %s.", aliceFile, bobFile)
+
+			invite, err := alice.CreateInvitation(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Alice can still load the file.")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Bob creating invite for Charles for file %s, and Charlie accepting invite under name %s.", bobFile, charlesFile)
+			invite, err = bob.CreateInvitation(bobFile, "charles")
+			Expect(err).To(BeNil())
+
+			err = charles.AcceptInvitation("bob", invite, charlesFile)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Checking that Bob can load the file.")
+			data, err = bob.LoadFile(bobFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Checking that Charles can load the file.")
+			data, err = charles.LoadFile(charlesFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne)))
+
+			userlib.DebugMsg("Alice revoking Bob's access from %s.", aliceFile)
+			err = alice.RevokeAccess(aliceFile, "bob")
+			Expect(err).To(BeNil())
+
+			err = charles.AcceptInvitation("bob", invite, charlesFile)
+			Expect(err).ToNot(BeNil())
+
+			err = bob.AcceptInvitation("alice", invite, bobFile)
+			Expect(err).ToNot(BeNil())
+
+		})
+
 	})
 })
