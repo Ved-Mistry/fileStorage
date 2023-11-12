@@ -659,6 +659,7 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 
 	f_editor, E := uuid.FromBytes(userlib.Hash([]byte(filename + userdata.UUiD.String()))[:16])
 	if E != nil {
+		fmt.Println("662")
 		return to_return, Err(3)
 	}
 
@@ -674,12 +675,14 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 
 	fpdata, E := userlib.PKEDec(userdata.privateKey, info)
 	if E != nil {
+		fmt.Println("678")
 		return to_return, Err(3)
 	}
 
 	var filepointer FilePointer
 	E = json.Unmarshal(fpdata, &filepointer)
 	if E != nil {
+		fmt.Println("685")
 		return to_return, Err(3)
 	}
 
@@ -688,6 +691,7 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 
 	info, bol = userlib.DatastoreGet(f_owner)
 	if !bol {
+		fmt.Println("694")
 		return to_return, Err(3)
 	}
 
@@ -699,6 +703,7 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 	var blockpointer BlockPointer
 	E = json.Unmarshal(bpdata, &blockpointer)
 	if E != nil {
+		fmt.Println("706")
 		return to_return, Err(3)
 	}
 
@@ -1061,15 +1066,19 @@ func inMap(uuid uuid.UUID, children map[uuid.UUID]uuid.UUID) bool {
 
 // BFS
 func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byte) error {
+	fmt.Println("OK BFS")
 	visited := make(map[uuid.UUID]bool)
 	stack := []AccessList{owner}
 	f_owner := owner.Fname
 
 	for len(stack) > 0 {
+		fmt.Println("OK BFS")
 		node := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+		fmt.Println(node.Children)
 
 		for id, location := range node.Children {
+			fmt.Println("OK BFS")
 			if !visited[id] {
 				visited[id] = true
 				if id != except {
@@ -1126,6 +1135,8 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 					filePointerCiphertext, err := userlib.PKEEnc(pKey, filepointerMarshal)
 					userlib.DatastoreSet(AL.Fname, filePointerCiphertext)
 
+				} else {
+					delete(node.Children, except)
 				}
 			}
 		}
@@ -1231,6 +1242,7 @@ func (userdata *User) CreateInvitation(filename string, recipientUsername string
 	uuidChild := user.UUiD
 
 	accessList.Children[uuidChild] = location
+	fmt.Println(accessList.Children)
 	accessListData, E := json.Marshal(accessList)
 	if E != nil {
 		fmt.Println("1200")
@@ -1435,6 +1447,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return Err(3)
 	}
 
+	fmt.Println(accessList.Children)
 	if !inMap(Recipientuuid, accessList.Children) {
 		fmt.Println("NOT IN MAP")
 		return Err(4)
@@ -1461,6 +1474,32 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return Err(3)
 	}
 
+	newRand, E := userlib.HashKDF(userdata.EncPrivKey[:16], userlib.RandomBytes(16))
+	newRand = newRand[:16]
+
+	newFilePointer.RandKey = newRand
+	newFPBytes, E := json.Marshal(newFilePointer)
+	if E != nil {
+		return Err(3)
+	}
+
+	newFPEnc, E := userlib.PKEEnc(userdata.PubKey, newFPBytes)
+	if E != nil {
+		return Err(3)
+	}
+
+	userlib.DatastoreSet(ConvertFilename(filename, userdata.UUiD), newFPEnc)
+
+	bpBytes, ok := userlib.DatastoreGet(oldFilePointer.F_owner)
+	if !ok {
+		return Err(8)
+	}
+
+	plaintextBP := userlib.SymDec(oldKey, bpBytes)
+	ciphertextBP := userlib.SymEnc(newRand, userdata.UUiD[:], plaintextBP)
+
+	userlib.DatastoreSet(oldFilePointer.F_owner, ciphertextBP)
+
 	signedALMarsh, E := json.Marshal(SignedAL)
 	if E != nil {
 		return Err(3)
@@ -1483,7 +1522,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	userlib.DatastoreSet(newALLoc, newAccess)
 
 	fmt.Println("OK")
-	E = dfs(accessList, Recipientuuid, oldFilePointer.RandKey, newFilePointer.RandKey)
+	E = dfs(accessList, Recipientuuid, oldFilePointer.RandKey, newRand)
 	if E != nil {
 		return E
 	}
