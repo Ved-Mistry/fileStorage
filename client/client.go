@@ -1065,11 +1065,11 @@ func inMap(uuid uuid.UUID, children map[uuid.UUID]uuid.UUID) bool {
 }
 
 // BFS
-func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byte) error {
+func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byte, f_owner uuid.UUID) (AccessList, error) {
 	fmt.Println("OK BFS")
 	visited := make(map[uuid.UUID]bool)
 	stack := []AccessList{owner}
-	f_owner := owner.Fname
+	fmt.Println(owner)
 
 	for len(stack) > 0 {
 		fmt.Println("OK BFS")
@@ -1088,7 +1088,7 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 
 					signedAccessListBytes, ok := userlib.DatastoreGet(location)
 					if !ok {
-						return Err(8)
+						return AL, Err(8)
 					}
 					signedAccessListDec := userlib.SymDec(OldRandKey, signedAccessListBytes)
 					newSignedAccessListEnc := userlib.SymEnc(NewRandKey, id[:], signedAccessListDec)
@@ -1097,7 +1097,7 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 
 					_, bad, _ := verify_signed_access_list(&signedAL)
 					if bad {
-						return Err(3)
+						return AL, Err(3)
 					}
 
 					json.Unmarshal(signedAL.FileData, &AL)
@@ -1106,7 +1106,7 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 					for childID, childLoc := range AL.Children {
 						signedAccessListBytes, ok := userlib.DatastoreGet(childLoc)
 						if !ok {
-							return Err(8)
+							return AL, Err(8)
 						}
 						signedAccessListDec := userlib.SymDec(OldRandKey, signedAccessListBytes)
 						newSignedAccessListEnc := userlib.SymEnc(NewRandKey, childID[:], signedAccessListDec)
@@ -1115,7 +1115,7 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 
 						_, bad, _ := verify_signed_access_list(&signedAL)
 						if bad {
-							return Err(3)
+							return AL, Err(3)
 						}
 
 						json.Unmarshal(signedAL.FileData, &AL)
@@ -1126,9 +1126,12 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 					filepointer.F_owner = f_owner
 					filepointer.RandKey = NewRandKey
 
+					fmt.Println(filepointer.F_owner)
+					fmt.Println(filepointer.RandKey)
+
 					filepointerMarshal, err := json.Marshal(filepointer)
 					if err != nil {
-						return Err(3)
+						return AL, Err(3)
 					}
 
 					pKey, err := getPubKeyUUID(id)
@@ -1136,12 +1139,15 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 					userlib.DatastoreSet(AL.Fname, filePointerCiphertext)
 
 				} else {
+					fmt.Println("EXCEPT")
+					fmt.Println(id)
 					delete(node.Children, except)
 				}
 			}
 		}
 	}
-	return nil
+	fmt.Println(owner)
+	return owner, nil
 
 }
 
@@ -1500,6 +1506,14 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 
 	userlib.DatastoreSet(oldFilePointer.F_owner, ciphertextBP)
 
+	ownerAccess, E := dfs(accessList, Recipientuuid, oldFilePointer.RandKey, newRand, oldFilePointer.F_owner)
+	if E != nil {
+		return E
+	}
+
+	ownerAccessBytes, E := json.Marshal(ownerAccess)
+	SignedAL.FileData = ownerAccessBytes
+
 	signedALMarsh, E := json.Marshal(SignedAL)
 	if E != nil {
 		return Err(3)
@@ -1522,10 +1536,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	userlib.DatastoreSet(newALLoc, newAccess)
 
 	fmt.Println("OK")
-	E = dfs(accessList, Recipientuuid, oldFilePointer.RandKey, newRand)
-	if E != nil {
-		return E
-	}
+
 	fmt.Println("OK last")
 
 	return nil
