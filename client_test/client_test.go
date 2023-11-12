@@ -760,5 +760,171 @@ var _ = Describe("Client Tests", func() {
 
 		})
 
+		Specify("Basic Test: Testing InitUser/GetUser on a single user.", func() {
+			userlib.DebugMsg("Getting user Alice.")
+			aliceLaptop, err = client.GetUser("alice", defaultPassword)
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Basic Test: Testing Single User Store/Load/Append.", func() {
+			userlib.DebugMsg("Initializing user Alice.")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = alice.StoreFile(aliceFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Appending file data: %s", contentTwo)
+			err = alice.AppendToFile(aliceFile, []byte(contentTwo))
+			Expect(err).ToNot(BeNil())
+
+			userlib.DebugMsg("Appending file data: %s", contentThree)
+			err = alice.AppendToFile(aliceFile, []byte(contentThree))
+			Expect(err).ToNot(BeNil())
+
+			userlib.DebugMsg("Loading file...")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).ToNot(BeNil())
+			Expect(data).ToNot(Equal([]byte(contentOne + contentTwo + contentThree)))
+		})
+
+		Specify("Basic Test: Testing InitUser/GetUser on a single user.", func() {
+			userlib.DebugMsg("Initializing user Alice.")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Getting user Alice.")
+			aliceLaptop, err = client.GetUser("alice", defaultPassword)
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Basic Test: Testing Single User Store/Load/Append.", func() {
+			userlib.DebugMsg("Initializing user Alice.")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = alice.StoreFile(aliceFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Initializing user Bob.")
+			bob, err = client.InitUser("bob", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = bob.StoreFile(aliceFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+		})
+
+		Specify("Basic Test: Testing Single User Store/Load/Append.", func() {
+			userlib.DebugMsg("Initializing user Alice.")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = alice.StoreFile(aliceFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = bob.StoreFile(aliceFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+		})
+
+		Specify("Basic Test: Testing Single User Store/Load/Append.", func() {
+			userlib.DebugMsg("Initializing user Alice.")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = alice.StoreFile(aliceFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentTwo)
+			err = alice.StoreFile(aliceFile, []byte(contentTwo))
+			Expect(err).ToNot(BeNil())
+		})
+
+		Specify("Basic Test: Testing Single User Store/Load/Append.", func() {
+			userlib.DebugMsg("Initializing user Alice.")
+			alice, err = client.InitUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = alice.StoreFile(aliceFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+
+			aliceLaptop, err = client.GetUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			aliceDesktop, err = client.GetUser("alice", defaultPassword)
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Storing file data: %s", contentOne)
+			err = aliceLaptop.StoreFile(bobFile, []byte(contentOne))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Appending file data: %s", contentThree)
+			err = aliceLaptop.AppendToFile(aliceFile, []byte(contentThree))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Loading file...")
+			data, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne + contentThree)))
+
+			userlib.DebugMsg("Loading file...")
+			dataLaptop, err := aliceLaptop.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(dataLaptop).To(Equal([]byte(contentOne + contentThree)))
+
+			userlib.DebugMsg("Appending file data: %s", contentTwo)
+			err = aliceDesktop.AppendToFile(aliceFile, []byte(contentTwo))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Appending file data: %s", contentThree)
+			err = alice.AppendToFile(aliceFile, []byte(contentThree))
+			Expect(err).To(BeNil())
+
+			userlib.DebugMsg("Loading file...")
+			dataAlice, err := alice.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(dataAlice).To(Equal([]byte(contentOne + contentThree + contentTwo + contentThree)))
+
+			userlib.DebugMsg("Loading file...")
+			dataLaptop, err = aliceLaptop.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(dataLaptop).To(Equal([]byte(contentOne + contentThree + contentTwo + contentThree)))
+
+			userlib.DebugMsg("Loading file...")
+			data, err = aliceDesktop.LoadFile(aliceFile)
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte(contentOne + contentThree + contentTwo + contentThree)))
+
+			DSMap := userlib.DatastoreGetMap()
+			for key, value := range DSMap {
+				value[0] += 1
+				userlib.DatastoreSet(key, value)
+			}
+
+			userlib.DebugMsg("Loading file...")
+			dataLaptop, err = aliceLaptop.LoadFile(aliceFile)
+			Expect(err).ToNot(BeNil())
+			Expect(dataLaptop).ToNot(Equal([]byte(contentOne + contentThree)))
+
+		})
+
 	})
 })
