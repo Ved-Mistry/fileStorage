@@ -662,8 +662,6 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 		return to_return, Err(3)
 	}
 
-	fmt.Println("1")
-
 	info, bol := userlib.DatastoreGet(f_editor)
 	if !bol {
 		return to_return, Err(8)
@@ -678,7 +676,7 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 	if E != nil {
 		return to_return, Err(3)
 	}
-	fmt.Println("1")
+
 	var filepointer FilePointer
 	E = json.Unmarshal(fpdata, &filepointer)
 	if E != nil {
@@ -693,7 +691,6 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 		return to_return, Err(3)
 	}
 
-	fmt.Println("1")
 	if len(RandKey) != 16 || len(info) < 16 {
 		fmt.Println("L1")
 		return to_return, Err(7)
@@ -705,7 +702,6 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 		return to_return, Err(3)
 	}
 
-	fmt.Println("1")
 	symKey = blockpointer.SymKey
 	BlockiD = blockpointer.BlockiD
 
@@ -714,7 +710,7 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 	// how to decrypt and check signature of file
 
 	for BlockiD != f_owner {
-		fmt.Println("1")
+
 		sigFile, E := get_signed_file(f_owner, BlockiD)
 		if E != nil {
 			return to_return, E
@@ -736,7 +732,6 @@ func (userdata *User) LoadFile(filename string) (content []byte, err error) {
 	}
 
 	to_return = reverseBytes(cSum)
-	fmt.Println("1")
 
 	return to_return, nil
 }
@@ -1078,6 +1073,7 @@ func dfs(owner AccessList, except uuid.UUID, OldRandKey []byte, NewRandKey []byt
 			if !visited[id] {
 				visited[id] = true
 				if id != except {
+					fmt.Println(id)
 					var signedAL SignedAccessList
 					var AL AccessList
 
@@ -1380,6 +1376,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return ErrorCheckRevoke(filename, userdata.UUiD)
 	}
 
+	fmt.Println("OK")
 	var user User
 
 	convertedUser := ConvertUsername(recipientUsername)
@@ -1394,6 +1391,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	}
 
 	Recipientuuid := user.UUiD
+	fmt.Println("OK")
 
 	// Saves old random key to use to decrypt
 	oldFilePointer, E := getFilePointer(ConvertFilename(filename, userdata.UUiD), userdata.privateKey)
@@ -1403,6 +1401,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	}
 
 	oldKey := oldFilePointer.RandKey
+	fmt.Println("OK")
 
 	// Checks if recipient is in owner's access list (children)
 	convertedFilename, E := uuid.FromBytes(userlib.Hash([]byte(filename + userdata.UUiD.String()))[:16])
@@ -1411,6 +1410,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		fmt.Println("1170")
 		return Err(3)
 	}
+	fmt.Println("OK")
 	SignedALLoc, E := get_AL_loc(EncALLoc, *userdata)
 	if E != nil {
 		fmt.Println("1175")
@@ -1421,6 +1421,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		fmt.Println("1180")
 		return Err(3)
 	}
+	fmt.Println("OK")
 
 	_, bad, _ := verify_signed_access_list(&SignedAL)
 	if bad {
@@ -1438,6 +1439,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		fmt.Println("NOT IN MAP")
 		return Err(4)
 	}
+	fmt.Println("OK")
 
 	// Loads in all content from filename
 	content, E = userdata.LoadFile(filename)
@@ -1446,6 +1448,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 		return Err(3)
 	}
 
+	fmt.Println("OK")
 	// Stores that file again, with the same name (this time should place the Block in a different location)
 	E = userdata.StoreFile(filename, content)
 	if E != nil {
@@ -1468,6 +1471,7 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	if E != nil {
 		return Err(3)
 	}
+	fmt.Println("OK")
 	newALLocLoc, E := get_AL_loc_loc(convertedFilename)
 	if E != nil {
 		return Err(3)
@@ -1478,10 +1482,12 @@ func (userdata *User) RevokeAccess(filename string, recipientUsername string) er
 	}
 	userlib.DatastoreSet(newALLoc, newAccess)
 
+	fmt.Println("OK")
 	E = dfs(accessList, Recipientuuid, oldFilePointer.RandKey, newFilePointer.RandKey)
 	if E != nil {
 		return E
 	}
+	fmt.Println("OK last")
 
 	return nil
 }
